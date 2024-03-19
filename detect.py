@@ -218,6 +218,19 @@ if __name__ == "__main__":
                     logits = outputs.logits
                     idx = logits.argmax(-1).item()
                     speaker.publish("You are standing next to a "+model.config.id2label[idx])
+                    text = "His hair is long or short?"
+                    start_time = time.time()
+                    processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
+                    model = ViltForQuestionAnswering.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
+
+                    # prepare inputs
+                    encoding = processor(pil_image, text, return_tensors="pt")
+
+                    # forward pass
+                    outputs = model(**encoding)
+                    logits = outputs.logits
+                    idx = logits.argmax(-1).item()
+                    speaker.publish(str(voice_text_list[am_index+1])+" has a "+model.config.id2label[idx]+" hair")
                     print(time.time()-start_time)
                     speak_name += 1
 
