@@ -164,6 +164,8 @@ if __name__ == "__main__":
     has_arrive=0
     speak_one_time=0
     speak_name=0
+    move_back  = [] #(msg_cmd.linear.x, msg_cmd.angular.z)
+    move_back_index=0
     while not rospy.is_shutdown():
         rospy.Rate(20).sleep()
         
@@ -217,6 +219,7 @@ if __name__ == "__main__":
             voice_text_small = voice_text.lower()
             print(voice_text_small)
             if ("i am" in voice_text_small):
+                move_back.reverse()
                 voice_text_list = voice_text.split()
                 am_index=voice_text_list.index("am")
                 name = str(voice_text_list[am_index+1])
@@ -236,8 +239,17 @@ if __name__ == "__main__":
                         print(name + " is wearing glasses")
                     speak_name += 1
 
+
         elif has_arrive == 0:
             pub_cmd.publish(msg_cmd)
+            move_back.append((msg_cmd.linear.x*(-1),msg_cmd.angular.z*(-1)))
+        elif has_arrive == 2:
+            if (move_back_index>=len(move_back)):
+                has_arrive = 3
+            msg_cmd.linear.x = move_back[move_back_index[0]]
+            msg_cmd.angular.z = move_back[move_back_index[1]]
+            pub_cmd.publish(msg_cmd)
+            move_back_index += 1
         
         
         cv2.imshow("frame", frame)
