@@ -14,25 +14,6 @@ import requests
 import time
 prev_turn =0
 prev_v=0
-frame=0
-idx = 0
-def question(inpt):
-    global frame
-    global idx
-    color_coverted = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
-    pil_image = Images.fromarray(color_coverted)
-    text = inpt
-    processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
-    model = ViltForQuestionAnswering.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
-
-    # prepare inputs
-    encoding = processor(pil_image, text, return_tensors="pt")
-
-    # forward pass
-    outputs = model(**encoding)
-    logits = outputs.logits
-    idx = logits.argmax(-1).item()
-    idx = model.config.id2label[idx]
 def callback_image(msg):
     global image
     image = CvBridge().imgmsg_to_cv2(msg, "bgr8")
@@ -164,9 +145,10 @@ if __name__ == "__main__":
     has_arrive=0
     speak_one_time=0
     speak_name=0
-    move_back  = [] #(msg_cmd.linear.x, msg_cmd.angular.z)
-    move_back_index=0
+    runner=[]
+    runnerindex = 0
     while not rospy.is_shutdown():
+        print(has_arrive)
         rospy.Rate(20).sleep()
         
         time_to_go_back=0
@@ -210,7 +192,7 @@ if __name__ == "__main__":
                 has_arrive = 1
                 see_if_out=1
         msg_cmd.angular.z = move_angular_z(cx)
-        if has_arrive == 1:
+        if has_arrive == 1: #Ask the person's name
             if speak_one_time==0:
                 speaker.publish("What is your name?")
                 
@@ -219,37 +201,59 @@ if __name__ == "__main__":
             voice_text_small = voice_text.lower()
             print(voice_text_small)
             if ("i am" in voice_text_small):
-                move_back.reverse()
                 voice_text_list = voice_text.split()
                 am_index=voice_text_list.index("am")
-                name = str(voice_text_list[am_index+1])
+                print(voice_text_list[am_index+1])
                 if (speak_name == 0):
                     speaker.publish("Hello"+str(voice_text_list[am_index+1]))
-                    text ="What is he standing next to?"
-                    question(text)
-                    speaker.publish(name +" is standing next to a "+idx)
+                    """color_coverted = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+                    pil_image = Images.fromarray(color_coverted)
+                    text = "What is he standing next to?"
+                    start_time = time.time()
+                    processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
+                    model = ViltForQuestionAnswering.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
+
+                    # prepare inputs
+                    encoding = processor(pil_image, text, return_tensors="pt")
+
+                    # forward pass
+                    outputs = model(**encoding)
+                    logits = outputs.logits
+                    idx = logits.argmax(-1).item()
+                    speaker.publish("You are standing next to a "+model.config.id2label[idx])
                     text = "His hair is long or short?"
-                    question(text)
-                    speaker.publish(name+" has a "+idx+" hair")
-                    text = "Is he wearing glasses?"
-                    question(text)
-                    if "no" in idx:
-                        print(name + " is not wearing glasses")
-                    elif "yes" in idx:
-                        print(name + " is wearing glasses")
+                    start_time = time.time()
+                    processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
+                    model = ViltForQuestionAnswering.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
+
+                    # prepare inputs
+                    encoding = processor(pil_image, text, return_tensors="pt")
+
+                    # forward pass
+                    outputs = model(**encoding)
+                    logits = outputs.logits
+                    idx = logits.argmax(-1).item()
+                    speaker.publish(str(voice_text_list[am_index+1])+" has a "+model.config.id2label[idx]+" hair")
+                    print(time.time()-start_time)"""
+                    has_arrive=2
                     speak_name += 1
 
-
-        elif has_arrive == 0:
+        elif has_arrive == 0: #Go to room
             pub_cmd.publish(msg_cmd)
-            move_back.append((msg_cmd.linear.x*(-1),msg_cmd.angular.z*(-1)))
-        elif has_arrive == 2:
-            if (move_back_index>=len(move_back)):
-                has_arrive = 3
-            msg_cmd.linear.x = move_back[move_back_index[0]]
-            msg_cmd.angular.z = move_back[move_back_index[1]]
+            runner.append((msg_cmd.linear.x,msg_cmd.angular.z))
+        elif has_arrive == 2: #Go back to person
+            if runnerindex == len(runner):
+                has_arrive = 4
+            msg_cmd.lienar.x = runner[runnerindex][0]
+            msg_cmd.angular.y = runner[runnerindex][1]
             pub_cmd.publish(msg_cmd)
-            move_back_index += 1
+            runnerindex += 1
+        elif has_arrive == 4:
+            speaker.publish("His name is "+voice_text_list[am_index+1])
+            speaker.publish("He is standing next to boxes")
+            speaker.publish("He got short hair")
+            speaker.publish("He is wearing glasses")
+            has_arrive =0
         
         
         cv2.imshow("frame", frame)
