@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from RobotChassis import RobotChassisFun
 import rospy
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -147,6 +148,15 @@ if __name__ == "__main__":
     speak_name=0
     runner=[]
     runnerindex = 0
+    chassis = RobotChassisFun()
+    chassis.set_initial_pose_in_rviz()
+    P = chassis.get_current_pose()
+    rospy.loginfo("From %.2f, %.2f, %.2f" % (P[0], P[1], P[2]))
+    
+    # 3. Set the target pose at the first time.
+    chassis.set_goal_in_rviz()
+    G = chassis.get_goal_pose()
+    rospy.loginfo("To %.2f, %.2f, %.2f" % (G[0], G[1], G[2]))
     while not rospy.is_shutdown():
         print(has_arrive)
         rospy.Rate(20).sleep()
@@ -239,8 +249,28 @@ if __name__ == "__main__":
                     speak_name += 1
 
         elif has_arrive == 0: #Go to room
-            pub_cmd.publish(msg_cmd)
-            runner.append((msg_cmd.linear.x,msg_cmd.angular.z))
+            code = chassis.status_code
+            text = chassis.status_text
+
+            # 5. From P to G, then from G to P.
+            if code == 0:       # No plan.
+                pass
+            elif code == 1:     # Processing.
+                pass
+            elif code == 3:     # Reach point.
+                rospy.loginfo("3. Move to %.2f, %.2f, %.2f" % (P[0], P[1], P[2]))
+                G = chassis.get_current_pose()
+                chassis.move_to(P[0], P[1], P[2])
+                has_arrive = 1
+                P = G
+            elif code == 4:     # No solution.
+                chassis.set_goal_in_rviz()
+                G = chassis.get_goal_pose()
+                rospy.loginfo("To %.2f, %.2f, %.2f" % (G[0], G[1], G[2]))
+            else:
+                rospy.loginfo("%d, %s" % (code, text))
+
+            
         elif has_arrive == 2: #Go back to person
             if runnerindex == len(runner):
                 has_arrive = 4
